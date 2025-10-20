@@ -1,0 +1,56 @@
+name: Auto-sync from Notion
+
+on:
+  schedule:
+    # Check for updates every 30 minutes during active hours (UTC)
+    - cron: '0,30 6-22 * * *'  # Every 30 min from 6 AM to 10 PM UTC
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  notion-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed to push changes
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync from Notion
+        run: npm run sync:notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+
+      - name: Check for changes
+        id: verify-changed-files
+        run: |
+          if git diff --quiet src/content/blog/; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes detected in blog content"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in blog content"
+            git diff --name-only src/content/blog/
+          fi
+
+      - name: Commit and push changes
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add src/content/blog/
+          git commit -m "Auto-sync: Update blog posts from Notion [skip ci]"
+          git push origin main

@@ -3,10 +3,6 @@
 import { Client } from '@notionhq/client';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
 
 // Notion configuration
 const notion = new Client({
